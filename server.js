@@ -27,22 +27,28 @@ const upload = multer({ dest: 'uploads/' });
 const apiRouter = express.Router();
 
 // Define a route to handle file uploads
-apiRouter.post('/upload', upload.single('file'), async (req, res) => {
-    const fileStream = Readable.from(req.file.buffer);
-
-    const params = {
-        Bucket: process.env.S3_BUCKET_NAME,
-        Key: req.file.originalname,
-        Body: fileStream,
-    };
+apiRouter.post('/upload', upload.array('images'), async (req, res) => {
+    if (!req.files) {
+        return res.status(400).send('No files were uploaded.');
+    }
 
     try {
-        await s3Client.send(new PutObjectCommand(params));
-        console.log('File uploaded successfully');
-        res.status(200).send('File uploaded');
+        const uploadPromises = req.files.map(file => {
+            const fileStream = Readable.from(file.buffer);
+            const params = {
+                Bucket: process.env.S3_BUCKET_NAME,
+                Key: file.originalname,
+                Body: fileStream,
+            };
+            return s3Client.send(new PutObjectCommand(params));
+        });
+
+        await Promise.all(uploadPromises);
+        console.log('Files uploaded successfully');
+        res.status(200).send('Files uploaded');
     } catch (err) {
         console.error(err);
-        res.status(500).send('Failed to upload file');
+        res.status(500).send('Failed to upload files');
     }
 });
 
