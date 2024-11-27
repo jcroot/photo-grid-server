@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { Upload } = require('@aws-sdk/lib-storage');
 const multer = require('multer');
 const { Readable } = require('stream');
 require('dotenv').config();
@@ -21,10 +23,22 @@ const s3Client = new S3Client({
 });
 
 // Set up multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // Create a new router
 const apiRouter = express.Router();
+
+//function to sign url from AWS
+const generateSignedUrl = async (key) => {
+    const params = {
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: key,
+        Expires: 60 * 5,
+    };
+    const command = new GetObjectCommand(params);
+    return await getSignedUrl(s3Client, command, {expiresIn: 300});
+}
 
 // Define a route to handle file uploads
 apiRouter.post('/upload', upload.array('images'), async (req, res) => {
@@ -35,20 +49,45 @@ apiRouter.post('/upload', upload.array('images'), async (req, res) => {
     try {
         const uploadPromises = req.files.map(file => {
             const fileStream = Readable.from(file.buffer);
-            const params = {
+            const uploadParams = {
                 Bucket: process.env.S3_BUCKET_NAME,
-                Key: file.originalname,
+                Key: `myuploads/${file.originalname}`,
                 Body: fileStream,
             };
-            return s3Client.send(new PutObjectCommand(params));
+            const parallelUploads3 = new Upload({
+                client: s3Client,
+                params: uploadParams,
+            });
+
+            return parallelUploads3.done().then(() => ({
+                thumbnailUrl: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/myuploads/${file.originalname}`
+            }));
         });
 
-        await Promise.all(uploadPromises);
+        const uploadedImages = await Promise.all(uploadPromises);
         console.log('Files uploaded successfully');
-        res.status(200).send('Files uploaded');
+        res.status(200).json({ images: uploadedImages });
     } catch (err) {
         console.error(err);
         res.status(500).send('Failed to upload files');
+    }
+});
+
+// Define a route to list all files in the S3 bucket
+apiRouter.get('/images', async (req, res) => {
+    try {
+        const params = {
+            Bucket: process.env.S3_BUCKET_NAME,
+        };
+        const data = await s3Client.send(new ListObjectsV2Command(params));
+        const files = await Promise.all(data.Contents.map(async (file) => {
+            const signedUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${file.Key}`;
+            return { key: file.Key, signedUrl };
+        }));
+        res.status(200).json(files);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Failed to list files');
     }
 });
 
