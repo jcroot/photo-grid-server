@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { S3Client, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const multer = require('multer');
 const { Readable } = require('stream');
@@ -28,17 +27,6 @@ const upload = multer({ storage: storage });
 
 // Create a new router
 const apiRouter = express.Router();
-
-//function to sign url from AWS
-const generateSignedUrl = async (key) => {
-    const params = {
-        Bucket: process.env.S3_BUCKET_NAME,
-        Key: key,
-        Expires: 60 * 5,
-    };
-    const command = new GetObjectCommand(params);
-    return await getSignedUrl(s3Client, command, {expiresIn: 300});
-}
 
 // Define a route to handle file uploads
 apiRouter.post('/upload', upload.array('images'), async (req, res) => {
