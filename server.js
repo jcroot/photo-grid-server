@@ -4,7 +4,7 @@ const { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand  } = 
 const { Upload } = require('@aws-sdk/lib-storage');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
-const { Readable } = require('stream');
+const sharp = require("sharp");
 require('dotenv').config();
 
 const app = express();
@@ -121,14 +121,22 @@ apiRouter.get('/images/:width(\\d+)x:height(\\d+)/:s3_object', async (req, res) 
         // Get the original image and resize
         const originalImage = await s3Client.send(new GetObjectCommand({
             Bucket: process.env.S3_BUCKET_NAME,
-            Key: s3_object,
+            Key: `myuploads/${s3_object}`,
         }));
 
         // Determine the content type
         const contentType = s3_object.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
+        // Convert the original image body to a buffer
+        const originalImageBuffer = await new Promise((resolve, reject) => {
+            const chunks = [];
+            originalImage.Body.on('data', (chunk) => chunks.push(chunk));
+            originalImage.Body.on('end', () => resolve(Buffer.concat(chunks)));
+            originalImage.Body.on('error', reject);
+        });
+
         // Resize the image
-        const resizedImageBuffer = await sharp(originalImage.Body)
+        const resizedImageBuffer = await sharp(originalImageBuffer)
             .resize(parseInt(width), parseInt(height))
             .toBuffer();
 
