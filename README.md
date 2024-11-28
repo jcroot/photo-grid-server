@@ -12,8 +12,8 @@ This project is a Node.js application that provides an API for uploading and lis
 
 1. Clone the repository:
     ```sh
-    git clone <repository-url>
-    cd <repository-directory>
+    git clone https://github.com/jcroot/photo-grid-server.git
+    cd photo-grid-server
     ```
 
 2. Install the dependencies:
