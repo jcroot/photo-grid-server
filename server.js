@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand  } = require('@aws-sdk/client-s3');
-const { Upload } = require('@aws-sdk/lib-storage');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const {S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand} = require('@aws-sdk/client-s3');
+const {Upload} = require('@aws-sdk/lib-storage');
+const {getSignedUrl} = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
 const sharp = require("sharp");
 require('dotenv').config();
@@ -24,7 +24,7 @@ const s3Client = new S3Client({
 
 // Set up multer for file uploads
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({storage: storage});
 
 // Add function to avoid DRY principle
 const uploadFileToS3 = async (fileBuffer, key, contentType) => {
@@ -34,7 +34,7 @@ const uploadFileToS3 = async (fileBuffer, key, contentType) => {
         Body: fileBuffer,
         ContentType: contentType,
     };
-    const upload = new Upload({ client: s3Client, params: uploadParams });
+    const upload = new Upload({client: s3Client, params: uploadParams});
     await upload.done();
 };
 
@@ -54,7 +54,7 @@ const generateSignedUrl = async (key) => {
         Expires: 60 * 5,
     };
     const command = new GetObjectCommand(params);
-    return await getSignedUrl(s3Client, command, { expiresIn: 300 });
+    return await getSignedUrl(s3Client, command, {expiresIn: 300});
 };
 
 // Define a route to handle file uploads
@@ -69,10 +69,10 @@ apiRouter.post('/upload', upload.array('images'), async (req, res) => {
                 const fileKey = `myuploads/${file.originalname}`;
                 await uploadFileToS3(file.buffer, fileKey, file.mimetype);
                 const thumbnailUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
-                return { thumbnailUrl };
+                return {thumbnailUrl};
             })
         );
-        res.status(200).json({ images: uploadedImages });
+        res.status(200).json({images: uploadedImages});
     } catch (err) {
         console.error(err);
         res.status(500).send('Failed to upload files');
@@ -89,7 +89,7 @@ apiRouter.get('/images', async (req, res) => {
         const files = await Promise.all(
             data.Contents.map(async (file) => {
                 const signedUrl = await generateSignedUrl(file.Key);
-                return { key: file.Key, signedUrl };
+                return {key: file.Key, signedUrl};
             })
         );
         res.status(200).json(files);
@@ -100,7 +100,7 @@ apiRouter.get('/images', async (req, res) => {
 });
 
 apiRouter.get('/images/:width(\\d+)x:height(\\d+)/:s3_object', async (req, res) => {
-    const { width, height, s3_object } = req.params;
+    const {width, height, s3_object} = req.params;
     const resizedKey = getResizedImageKey(width, height, s3_object);
 
     try {
@@ -137,7 +137,12 @@ apiRouter.get('/images/:width(\\d+)x:height(\\d+)/:s3_object', async (req, res) 
 
         // Resize the image
         const resizedImageBuffer = await sharp(originalImageBuffer)
-            .resize(parseInt(width), parseInt(height))
+            .resize({
+                width: parseInt(width),
+                height: parseInt(height),
+                fit: 'inside', // trick to resize not crop
+                withoutEnlargement: true, //prevent enlarging the image
+            })
             .toBuffer();
 
         // Upload the resized image to S3
