@@ -64,6 +64,18 @@ Lists files from the S3 bucket.
 - Status: 200 OK
 - Body: JSON array containing file keys and signed URLs
 
+### GET /api/images/:width:height/:s3_object
+
+Resizes an image to the specified width and height and returns a signed URL.
+
+**Request:**
+- Method: GET
+- URL: `/api/images/:width:height/:s3_object`
+
+**Response:**
+- Status: 200 OK
+- Body: Redirect to the signed URL of the resized image
+
 ## Running Tests
 
 To run the tests, use:

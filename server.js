@@ -99,7 +99,7 @@ apiRouter.get('/images', async (req, res) => {
     }
 });
 
-apiRouter.get('/images/:width(\\d+):height(\\d+)/:s3_object', async (req, res) => {
+apiRouter.get('/images/:width(\\d+)x:height(\\d+)/:s3_object', async (req, res) => {
     const { width, height, s3_object } = req.params;
     const resizedKey = getResizedImageKey(width, height, s3_object);
 
