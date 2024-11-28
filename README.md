@@ -70,7 +70,7 @@ Resizes an image to the specified width and height and returns a signed URL.
 
 **Request:**
 - Method: GET
-- URL: `/api/images/:width:height/:s3_object`
+- URL: `/api/images/:widthx:height/:s3_object`
 
 **Response:**
 - Status: 200 OK
